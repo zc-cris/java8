@@ -48,4 +48,27 @@ public class TestLambda3 {
     public String handleString(String str, MyStringFunction myStringFunction){
         return myStringFunction.getValue(str);
     }
+
+    /**
+     * 声明一个带有两个泛型的函数式接口，T 为参数，R 为返回值
+     * 接口中声明一个抽象方法
+     * 在 test 类中声明一个方法，指定这个函数式接口为参数，计算两个 Long 型参数的和
+     * 再计算两个 Long 型参数的积
+     */
+    public Long handleLong(Long l1, Long l2, MyLongFunction<Long, Long> myLongFunction) {
+        return myLongFunction.function(l1, l2);
+    }
+
+    @Test
+    public void test3() {
+        Long result = handleLong(12L, 40L, (l1, l2) -> l1 + l2);
+        System.out.println(result);
+        System.out.println(handleLong(10L, 12L, (x, y) -> x * y));
+    }
+
+
+
+
+
+
 }

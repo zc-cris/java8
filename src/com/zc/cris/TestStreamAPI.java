@@ -2,10 +2,8 @@ package com.zc.cris;
 
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /*
@@ -23,13 +21,13 @@ public class TestStreamAPI {
     //2. 中间操作
     // 模拟一个员工数据集合
     private List<Employee> employeeList = Arrays.asList(
-            new Employee("老大", 23, 3423.34),
-            new Employee("老二", 33, 5521.23),
-            new Employee("老三", 13, 2345.34),
-            new Employee("老四", 14, 7643.23),
-            new Employee("老五", 21, 3645.23),
-            new Employee("老五", 21, 3645.23),
-            new Employee("老五", 21, 3645.23)
+            new Employee("老大", 23, 3423.34, EMP_STATUS.BUSY),
+            new Employee("老二", 33, 5521.23, EMP_STATUS.FREE),
+            new Employee("老三", 13, 2345.34, EMP_STATUS.BUSY),
+            new Employee("老四", 14, 7643.23, EMP_STATUS.FREE),
+            new Employee("老五", 21, 3645.23, EMP_STATUS.VOCATION),
+            new Employee("老五", 21, 3645.23, EMP_STATUS.VOCATION),
+            new Employee("老五", 21, 3645.23, EMP_STATUS.BUSY)
     );
 
     public static Stream<Character> getCharacterStream(String str) {
@@ -223,6 +221,119 @@ public class TestStreamAPI {
         Optional<Double> min = employeeList.stream().map(Employee::getSalary).min(Double::compare);
         System.out.println(min);
     }
+
+    /*
+		归约
+		reduce(T identity, BinaryOperator) / reduce(BinaryOperator) ——可以将流中元素反复结合起来，得到一个值。
+	 */
+    @Test
+    public void test12() {
+        List<Integer> list = Arrays.asList(1, 2, 3, 4, 5, 6);
+        // 因为起始值为0，所以不用担心计算结果为null
+        Integer result = list.stream().reduce(0, (x, y) -> x + y);
+        System.out.println(result);
+
+        // 计算所有员工的工资，没有初始值，可能为null，所以返回值为 Optional类型，防止计算结果为null
+        Optional<Double> reduce = employeeList.stream().map(Employee::getSalary).reduce(Double::sum);
+        System.out.println(reduce.get());
+
+
+    }
+
+    /*
+    '收集
+     */
+    //collect——将流转换为其他形式。接收一个 Collector接口的实现，用于给Stream中元素做汇总的方法
+    @Test
+    public void test13() {
+        // 收集所有员工的名字并放入到一个集合中
+        List<String> list = employeeList.stream().map(Employee::getName).collect(Collectors.toList());
+        list.forEach(System.out::println);
+
+        // 去重
+        Set<String> set = employeeList.stream().map(Employee::getName).collect(Collectors.toSet());
+        set.forEach(System.out::println);
+
+        System.out.println("--------------");
+        // LinkedHashSet
+        LinkedHashSet<String> linkedHashSet = employeeList.stream().map(Employee::getName).collect(Collectors.toCollection(LinkedHashSet::new));
+        linkedHashSet.forEach(System.out::println);
+    }
+
+    @Test
+    public void test14() {
+        // 还可以使用 Stream 的收集API 进行数据的计算
+        // 集合中元素个数
+        Long sum = employeeList.stream().collect(Collectors.counting());
+        System.out.println(sum);
+
+        // 集合中所有元素的某个属性的平均值
+        Double salAvg = employeeList.stream().collect(Collectors.averagingDouble(Employee::getSalary));
+        System.out.println(salAvg);
+
+        // 数据分析（得到集合中元素某个属性的总值，个数值，最小值，最大值，平均值的的一个结果集）
+        DoubleSummaryStatistics salSum = employeeList.stream().collect(Collectors.summarizingDouble(Employee::getSalary));
+        System.out.println(salSum);
+
+        // 集合中所有元素的某个属性的总值
+        Double sumSal = employeeList.stream().collect(Collectors.summingDouble(Employee::getSalary));
+        System.out.println(sumSal);
+
+        // 获取当前工资最高的员工对象
+        Optional<Employee> employee = employeeList.stream().collect(Collectors.maxBy((x, y) -> Double.compare(x.getSalary(), y.getSalary())));
+        System.out.println(employee);
+
+        // 获取当前最低的工资是多少
+        Optional<Double> salary = employeeList.stream().map(Employee::getSalary).collect(Collectors.minBy(Double::compare));
+        System.out.println(salary.get());
+    }
+
+    // 分组
+    @Test
+    public void test15() {
+        Map<EMP_STATUS, List<Employee>> map = employeeList.stream().collect(Collectors.groupingBy(Employee::getStatus));
+        // {BUSY=[Employee{name='老大', age=23, salary=3423.34, status=BUSY}, Employee{name='老三', age=13, salary=2345.34, status=BUSY}, Employee{name='老五', age=21, salary=3645.23, status=BUSY}]
+        // , FREE=[Employee{name='老二', age=33, salary=5521.23, status=FREE}, Employee{name='老四', age=14, salary=7643.23, status=FREE}]
+        // , VOCATION=[Employee{name='老五', age=21, salary=3645.23, status=VOCATION}, Employee{name='老五', age=21, salary=3645.23, status=VOCATION}]}
+        System.out.println(map);
+
+        // 多级分组（有意思）
+        Map<EMP_STATUS, Map<String, List<Employee>>> collect = employeeList.stream().collect(Collectors.groupingBy(Employee::getStatus, Collectors.groupingBy(employee -> {
+            if (employee.getAge() < 20) {
+                return "年轻人";
+            } else if (employee.getAge() < 40) {
+                return "中年人";
+            } else {
+                return "老年人";
+            }
+        })));
+        // {BUSY={中年人=[Employee{name='老大', age=23, salary=3423.34, status=BUSY}, Employee{name='老五', age=21, salary=3645.23, status=BUSY}], 年轻人=[Employee{name='老三', age=13, salary=2345.34, status=BUSY}]}
+        // , FREE={中年人=[Employee{name='老二', age=33, salary=5521.23, status=FREE}], 年轻人=[Employee{name='老四', age=14, salary=7643.23, status=FREE}]}
+        // , VOCATION={中年人=[Employee{name='老五', age=21, salary=3645.23, status=VOCATION}, Employee{name='老五', age=21, salary=3645.23, status=VOCATION}]}}
+        System.out.println(collect);
+
+    }
+
+    // 分区
+    @Test
+    public void test16() {
+        Map<Boolean, List<Employee>> collect = employeeList.stream().collect(Collectors.partitioningBy(employee -> employee.getSalary() > 5000));
+        System.out.println(collect);
+    }
+
+    // 字符串拼接
+    @Test
+    public void test17() {
+        String str = employeeList.stream().map(Employee::getName).collect(Collectors.joining(","));
+        // 老大,老二,老三,老四,老五,老五,老五
+        System.out.println(str);
+        String collect = employeeList.stream().map(Employee::getName).collect(Collectors.joining(",", "-----", "-----"));
+        // -----老大,老二,老三,老四,老五,老五,老五-----
+        System.out.println(collect);
+    }
+
+
+
 
 
 }
